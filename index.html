@@ -45,258 +45,245 @@
     </div>
 
     <script>
-        let groceryItems = [];
-        let itemIdCounter = 0;
+    let groceryItems = [];
+    let itemIdCounter = 0;
 
-        function addItem() {
-            const itemNameInput = document.getElementById('itemName');
-            const itemQuantityInput = document.getElementById('itemQuantity');
-            
-            const itemName = itemNameInput.value.trim();
-            const itemQuantity = parseInt(itemQuantityInput.value) || 1;
+    function saveToLocalStorage() {
+        localStorage.setItem('groceryItems', JSON.stringify(groceryItems));
+        localStorage.setItem('itemIdCounter', itemIdCounter);
+    }
 
-            if (itemName === '') {
-                alert('Please enter an item name!');
-                itemNameInput.focus();
-                return;
-            }
+    function loadFromLocalStorage() {
+        const savedItems = localStorage.getItem('groceryItems');
+        const savedCounter = localStorage.getItem('itemIdCounter');
 
-            if (itemQuantity < 1) {
-                alert('Quantity must be at least 1!');
-                itemQuantityInput.focus();
-                return;
-            }
+        if (savedItems) {
+            groceryItems = JSON.parse(savedItems);
+            groceryItems.forEach(item => addItemToDOM(item));
+        }
 
-            // Check if item already exists
-            const existingItemIndex = groceryItems.findIndex(item => 
-                item.name.toLowerCase() === itemName.toLowerCase()
-            );
+        if (savedCounter) {
+            itemIdCounter = parseInt(savedCounter);
+        }
 
-            if (existingItemIndex !== -1) {
-                // Update existing item quantity
-                groceryItems[existingItemIndex].quantity += itemQuantity;
-                updateItemInDOM(existingItemIndex);
-                showNotification(`Updated ${itemName} quantity!`);
-            } else {
-                // Add new item
-                const newItem = {
-                    id: itemIdCounter++,
-                    name: itemName,
-                    quantity: itemQuantity
-                };
-                groceryItems.push(newItem);
-                addItemToDOM(newItem);
-                showNotification(`Added ${itemName} to your list!`);
-            }
+        updateUI();
+    }
 
-            // Clear inputs
-            itemNameInput.value = '';
-            itemQuantityInput.value = '1';
+    function addItem() {
+        const itemNameInput = document.getElementById('itemName');
+        const itemQuantityInput = document.getElementById('itemQuantity');
+
+        const itemName = itemNameInput.value.trim();
+        const itemQuantity = parseInt(itemQuantityInput.value) || 1;
+
+        if (itemName === '') {
+            alert('Please enter an item name!');
             itemNameInput.focus();
-
-            updateUI();
+            return;
         }
 
-        function addItemToDOM(item) {
-            const groceryList = document.getElementById('groceryList');
-            const emptyState = document.getElementById('emptyState');
-            
-            if (emptyState) {
-                emptyState.remove();
-            }
-
-            const listItem = document.createElement('li');
-            listItem.className = 'grocery-item fade-in';
-            listItem.setAttribute('data-id', item.id);
-            
-            listItem.innerHTML = `
-                <div class="item-info">
-                    <div class="item-name">${escapeHtml(item.name)}</div>
-                    <div class="item-quantity">Quantity: ${item.quantity}</div>
-                </div>
-                <button class="remove-btn" onclick="removeItem(${item.id})">
-                    ❌ Remove
-                </button>
-            `;
-
-            groceryList.appendChild(listItem);
+        if (itemQuantity < 1) {
+            alert('Quantity must be at least 1!');
+            itemQuantityInput.focus();
+            return;
         }
 
-        function updateItemInDOM(itemIndex) {
+        const existingItemIndex = groceryItems.findIndex(item =>
+            item.name.toLowerCase() === itemName.toLowerCase()
+        );
+
+        if (existingItemIndex !== -1) {
+            groceryItems[existingItemIndex].quantity += itemQuantity;
+            updateItemInDOM(existingItemIndex);
+            showNotification(`Updated ${itemName} quantity!`);
+        } else {
+            const newItem = {
+                id: itemIdCounter++,
+                name: itemName,
+                quantity: itemQuantity
+            };
+            groceryItems.push(newItem);
+            addItemToDOM(newItem);
+            showNotification(`Added ${itemName} to your list!`);
+        }
+
+        saveToLocalStorage();
+
+        itemNameInput.value = '';
+        itemQuantityInput.value = '1';
+        itemNameInput.focus();
+
+        updateUI();
+    }
+
+    function addItemToDOM(item) {
+        const groceryList = document.getElementById('groceryList');
+        const emptyState = document.getElementById('emptyState');
+
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const listItem = document.createElement('li');
+        listItem.className = 'grocery-item fade-in';
+        listItem.setAttribute('data-id', item.id);
+
+        listItem.innerHTML = `
+            <div class="item-info">
+                <div class="item-name">${escapeHtml(item.name)}</div>
+                <div class="item-quantity">Quantity: ${item.quantity}</div>
+            </div>
+            <button class="remove-btn" onclick="removeItem(${item.id})">❌ Remove</button>
+        `;
+
+        groceryList.appendChild(listItem);
+    }
+
+    function updateItemInDOM(itemIndex) {
+        const item = groceryItems[itemIndex];
+        const itemElement = document.querySelector(`[data-id="${item.id}"]`);
+
+        if (itemElement) {
+            const quantityElement = itemElement.querySelector('.item-quantity');
+            quantityElement.textContent = `Quantity: ${item.quantity}`;
+            itemElement.classList.add('pulse');
+            setTimeout(() => itemElement.classList.remove('pulse'), 300);
+        }
+
+        saveToLocalStorage();
+    }
+
+    function removeItem(itemId) {
+        const itemIndex = groceryItems.findIndex(item => item.id === itemId);
+
+        if (itemIndex !== -1) {
             const item = groceryItems[itemIndex];
-            const itemElement = document.querySelector(`[data-id="${item.id}"]`);
-            
+            const itemElement = document.querySelector(`[data-id="${itemId}"]`);
+
             if (itemElement) {
-                const quantityElement = itemElement.querySelector('.item-quantity');
-                const quantityDisplay = itemElement.querySelector('.quantity-display');
-                
-                quantityElement.textContent = `Quantity: ${item.quantity}`;
-                quantityDisplay.textContent = item.quantity;
-                
-                // Add a brief highlight effect
-                itemElement.classList.add('pulse');
+                itemElement.classList.add('slide-out');
                 setTimeout(() => {
-                    itemElement.classList.remove('pulse');
-                }, 300);
-            }
-        }
-
-        function changeQuantity(itemId, change) {
-            const itemIndex = groceryItems.findIndex(item => item.id === itemId);
-            
-            if (itemIndex !== -1) {
-                groceryItems[itemIndex].quantity = Math.max(1, groceryItems[itemIndex].quantity + change);
-                updateItemInDOM(itemIndex);
-                updateUI();
-            }
-        }
-
-        function removeItem(itemId) {
-            const itemIndex = groceryItems.findIndex(item => item.id === itemId);
-            
-            if (itemIndex !== -1) {
-                const item = groceryItems[itemIndex];
-                const itemElement = document.querySelector(`[data-id="${itemId}"]`);
-                
-                if (itemElement) {
-                    itemElement.classList.add('slide-out');
-                    setTimeout(() => {
-                        itemElement.remove();
-                        groceryItems.splice(itemIndex, 1);
-                        updateUI();
-                        showNotification(`Removed ${item.name} from your list!`);
-                        
-                        if (groceryItems.length === 0) {
-                            showEmptyState();
-                        }
-                    }, 300);
-                }
-            }
-        }
-
-        function clearAll() {
-            if (groceryItems.length === 0) return;
-            
-            if (confirm('Are you sure you want to clear all items from your grocery list?')) {
-                const allItems = document.querySelectorAll('.grocery-item');
-                allItems.forEach((item, index) => {
-                    setTimeout(() => {
-                        item.classList.add('slide-out');
-                        setTimeout(() => {
-                            item.remove();
-                        }, 300);
-                    }, index * 50);
-                });
-
-                setTimeout(() => {
-                    groceryItems = [];
+                    itemElement.remove();
+                    groceryItems.splice(itemIndex, 1);
+                    saveToLocalStorage();
                     updateUI();
-                    showEmptyState();
-                    showNotification('Cleared all items from your list!');
-                }, allItems.length * 50 + 300);
-            }
-        }
+                    showNotification(`Removed ${item.name} from your list!`);
 
-        function showEmptyState() {
-            const groceryList = document.getElementById('groceryList');
-            groceryList.innerHTML = `
-                <div class="empty-state fade-in" id="emptyState">
-                    <div class="empty-icon">🛍️</div>
-                    <div class="empty-message">Your grocery list is empty</div>
-                    <div class="empty-submessage">Click on products to add them to your list!</div>
-                </div>
-            `;
-        }
-
-        function updateUI() {
-            const itemCount = document.getElementById('itemCount');
-            const clearBtn = document.getElementById('clearBtn');
-            
-            const totalItems = groceryItems.reduce((sum, item) => sum + item.quantity, 0);
-            const uniqueItems = groceryItems.length;
-            
-            if (uniqueItems === 0) {
-                itemCount.textContent = '0 items';
-                clearBtn.style.display = 'none';
-            } else if (uniqueItems === 1) {
-                itemCount.textContent = `1 item (${totalItems} total)`;
-                clearBtn.style.display = 'inline-block';
-            } else {
-                itemCount.textContent = `${uniqueItems} items (${totalItems} total)`;
-                clearBtn.style.display = 'inline-block';
-            }
-        }
-
-        function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                color: white;
-                padding: 15px 25px;
-                border-radius: 10px;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-                z-index: 1001;
-                font-weight: 600;
-                animation: slideInRight 0.3s ease-out;
-                max-width: 300px;
-            `;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            setTimeout(() => {
-                notification.style.animation = 'slideOutRight 0.3s ease-out forwards';
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
+                    if (groceryItems.length === 0) {
+                        showEmptyState();
                     }
                 }, 300);
-            }, 3000);
-        }
-
-        function escapeHtml(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        // Initialize the application when the page loads
-        document.addEventListener('DOMContentLoaded', init);
-
-        // Add CSS for notifications
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideInRight {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
             }
-            
-            @keyframes slideOutRight {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
+        }
+    }
+
+    function clearAll() {
+        if (groceryItems.length === 0) return;
+
+        if (confirm('Are you sure you want to clear all items from your grocery list?')) {
+            const allItems = document.querySelectorAll('.grocery-item');
+            allItems.forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.add('slide-out');
+                    setTimeout(() => item.remove(), 300);
+                }, index * 50);
+            });
+
+            setTimeout(() => {
+                groceryItems = [];
+                itemIdCounter = 0;
+                saveToLocalStorage();
+                updateUI();
+                showEmptyState();
+                showNotification('Cleared all items from your list!');
+            }, allItems.length * 50 + 300);
+        }
+    }
+
+    function showEmptyState() {
+        const groceryList = document.getElementById('groceryList');
+        groceryList.innerHTML = `
+            <div class="empty-state fade-in" id="emptyState">
+                <div class="empty-icon">🛍️</div>
+                <div class="empty-message">Your grocery list is empty</div>
+                <div class="empty-submessage">Click on products to add them to your list!</div>
+            </div>
         `;
-        document.head.appendChild(style);
-      `);
-            
-          
+    }
+
+    function updateUI() {
+        const itemCount = document.getElementById('itemCount');
+        const clearBtn = document.getElementById('clearBtn');
+
+        const totalItems = groceryItems.reduce((sum, item) => sum + item.quantity, 0);
+        const uniqueItems = groceryItems.length;
+
+        if (uniqueItems === 0) {
+            itemCount.textContent = '0 items';
+            clearBtn.style.display = 'none';
+        } else if (uniqueItems === 1) {
+            itemCount.textContent = `1 item (${totalItems} total)`;
+            clearBtn.style.display = 'inline-block';
+        } else {
+            itemCount.textContent = `${uniqueItems} items (${totalItems} total)`;
+            clearBtn.style.display = 'inline-block';
+        }
+    }
+
+    function showNotification(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            font-weight: 600;
+            animation: slideInRight 0.3s ease-out;
+            max-width: 300px;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease-out forwards';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Load saved list when the page loads
+    document.addEventListener('DOMContentLoaded', loadFromLocalStorage);
+
+    // Add keyframes for notification
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
     </script>
 </body>
 </html>
